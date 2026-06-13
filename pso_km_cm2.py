@@ -150,17 +150,23 @@ class PSOKM_CM2:
         w: float = 0.7,
         c1: float = 0.2,
         c2: float = 0.2,
+        adaptive_inertia: bool = False,
+        w_start: float = 0.9,
+        w_end: float = 0.4,
         seed: int = None
     ):
         """
         Args:
-            K:          Number of clusters
-            swarm_size: Number of particles  (thesis Table 1: 6)
-            max_iter:   Maximum iterations   (thesis Table 1: 40)
-            w:          Inertia weight        (thesis Table 1: 0.7)
-            c1:         Cognitive factor      (thesis Table 1: 0.2)
-            c2:         Social factor         (thesis Table 1: 0.2)
-            seed:       Random seed
+            K:                Number of clusters
+            swarm_size:       Number of particles  (thesis Table 1: 6)
+            max_iter:         Maximum iterations   (thesis Table 1: 40)
+            w:                Inertia weight — used when adaptive_inertia=False (thesis Table 1: 0.7)
+            c1:               Cognitive factor     (thesis Table 1: 0.2)
+            c2:               Social factor        (thesis Table 1: 0.2)
+            adaptive_inertia: If True, linearly decrease w from w_start to w_end each iteration
+            w_start:          Initial inertia weight for adaptive mode (default 0.9)
+            w_end:            Final inertia weight for adaptive mode   (default 0.4)
+            seed:             Random seed
         """
         self.K = K
         self.swarm_size = swarm_size
@@ -168,6 +174,9 @@ class PSOKM_CM2:
         self.w = w
         self.c1 = c1
         self.c2 = c2
+        self.adaptive_inertia = adaptive_inertia
+        self.w_start = w_start
+        self.w_end = w_end
         self.rng = np.random.default_rng(seed)
 
         self.mse_history: list[float] = []
@@ -240,8 +249,16 @@ class PSOKM_CM2:
                 r1 = self.rng.uniform(0, 1, size=positions[i].shape)
                 r2 = self.rng.uniform(0, 1, size=positions[i].shape)
 
+                # Adaptive inertia: linearly decrease w each iteration
+                if self.adaptive_inertia:
+                    current_w = self.w_start - (self.w_start - self.w_end) * (
+                        iteration / max(self.max_iter - 1, 1)
+                    )
+                else:
+                    current_w = self.w
+
                 velocities[i] = (
-                    self.w * velocities[i]
+                    current_w * velocities[i]
                     + self.c1 * r1 * (pbest_positions[i] - positions[i])
                     + self.c2 * r2 * (gbest_position - positions[i])
                 )
